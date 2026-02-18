@@ -1,40 +1,77 @@
+# migrate.py
 import os
-from config import get_config
-from db import DB
-from werkzeug.security import generate_password_hash
-from security import now
+import sqlite3
 
-SCHEMA = [
-"""CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT NOT NULL UNIQUE,
-  pass_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('super','operator')),
-  enabled INTEGER NOT NULL DEFAULT 1,
-  created_at INTEGER NOT NULL
-);""",
-"""CREATE TABLE IF NOT EXISTS routers (
-  router_id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  owner_user_id INTEGER NOT NULL,
-  secret TEXT NOT NULL,
-  enabled INTEGER NOT NULL DEFAULT 1,
-  created_at INTEGER NOT NULL,
-  FOREIGN KEY(owner_user_id) REFERENCES users(id) ON DELETE CASCADE
-);""",
-"""CREATE TABLE IF NOT EXISTS profiles (
-  name TEXT PRIMARY KEY,
-  seconds INTEGER NOT NULL CHECK(seconds > 0),
-  up_bytes INTEGER NOT NULL CHECK(up_bytes >= 0),
-  down_bytes INTEGER NOT NULL CHECK(down_bytes >= 0),
-  price INTEGER NOT NULL DEFAULT 0 CHECK(price >= 0),
-  expiry_days INTEGER NOT NULL DEFAULT 7 CHECK(expiry_days >= 0),
-  created_at INTEGER NOT NULL
-);""",
-"""CREATE TABLE IF NOT EXISTS vouchers (
-  code TEXT PRIMARY KEY,
-  owner_user_id INTEGER NOT NULL,
-  router_id TEXT NOT NULL,
+
+def migrate():
+    db_path = os.environ.get("DB_PATH", "vouchers.db").strip()
+    busy_timeout_ms = int(os.environ.get("DB_BUSY_TIMEOUT_MS", "5000"))
+
+    conn = sqlite3.connect(db_path, timeout=busy_timeout_ms / 1000.0)
+    cur = conn.cursor()
+
+    # -----------------------------
+    # USERS
+    # -----------------------------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('super_admin','operator'))
+    );
+    """)
+
+    # -----------------------------
+    # VOUCHERS
+    # -----------------------------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS vouchers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        duration_minutes INTEGER NOT NULL DEFAULT 60,
+        status TEXT NOT NULL DEFAULT 'unused' CHECK(status IN ('unused','used')),
+        created_by INTEGER,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+        used_at INTEGER,
+        used_by_mac TEXT,
+        FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+    """)
+
+    # -----------------------------
+    # SESSIONS (active time tracking)
+    # -----------------------------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        voucher_id INTEGER NOT NULL,
+        mac TEXT NOT NULL,
+        start_at INTEGER NOT NULL,
+        end_at INTEGER NOT NULL,
+        router_id TEXT,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+        FOREIGN KEY(voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE
+    );
+    """)
+
+    # -----------------------------
+    # NONCES (anti-replay for /api/auth)
+    # -----------------------------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS nonces (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nonce TEXT UNIQUE NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+    );
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+if __name__ == "__main__":
+    migrate()  router_id TEXT NOT NULL,
   profile TEXT NOT NULL,
   seconds INTEGER NOT NULL,
   up_bytes INTEGER NOT NULL,
