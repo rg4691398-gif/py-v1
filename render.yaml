@@ -3,24 +3,28 @@ services:
     name: voucher-system
     env: python
     plan: free
+
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
+
     envVars:
       - key: FLASK_ENV
         value: production
+
       - key: SECRET_KEY
         generateValue: true
+
       - key: DB_PATH
-        value: /var/data/vouchers.db
+        value: vouchers.db
+
       - key: BOOTSTRAP_ADMIN_USER
         value: admin
+
       - key: BOOTSTRAP_ADMIN_PASS
         value: change-me
+
       - key: MAX_CLOCK_SKEW_SECONDS
         value: "300"
+
       - key: NONCE_TTL_SECONDS
         value: "600"
-disks:
-  - name: data
-    mountPath: /var/data
-    sizeGB: 1
