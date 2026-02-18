@@ -1,71 +1,92 @@
+# db.py
 import os
 import sqlite3
+import threading
 from contextlib import contextmanager
-from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-def dict_factory(cursor, row):
-    return {col[0]: row[idx] for idx, col in enumerate(cursor.description)}
 
 class DB:
-    def __init__(self, path: str, busy_timeout_ms: int = 5000):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        self.path = path
-        self.busy_timeout_ms = busy_timeout_ms
+    """
+    SQLite helper for Flask apps.
+
+    Key points:
+    - Safely creates parent directory if DB_PATH includes a directory.
+      (If DB_PATH is 'vouchers.db', dirname == '' -> no mkdir, avoids Render crash)
+    - Provides connect() and a contextmanager for transactions.
+    - Uses a thread-local connection to reduce overhead.
+    """
+
+    def __init__(self, path: str):
+        self.path = (path or "vouchers.db").strip()
+        parent = os.path.dirname(self.path)
+        if parent:  # ✅ only create dir if dirname exists
+            os.makedirs(parent, exist_ok=True)
+
+        self._local = threading.local()
 
     def connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.path, timeout=self.busy_timeout_ms/1000.0, isolation_level=None)
-        conn.row_factory = dict_factory
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA synchronous=NORMAL;")
-        conn.execute("PRAGMA foreign_keys=ON;")
-        conn.execute("PRAGMA temp_store=MEMORY;")
-        conn.execute(f"PRAGMA busy_timeout={int(self.busy_timeout_ms)};")
+        """Get/create a thread-local connection."""
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(self.path, check_same_thread=False, timeout=30)
+            conn.row_factory = sqlite3.Row
+            # Pragmas: reasonable defaults for web usage
+            conn.execute("PRAGMA foreign_keys = ON;")
+            conn.execute("PRAGMA journal_mode = WAL;")
+            conn.execute("PRAGMA synchronous = NORMAL;")
+            self._local.conn = conn
         return conn
 
-    @contextmanager
-    def transaction(self, immediate: bool = False):
-        conn = self.connect()
-        try:
-            if immediate:
-                conn.execute("BEGIN IMMEDIATE;")
-            else:
-                conn.execute("BEGIN;")
-            yield conn
-            conn.execute("COMMIT;")
-        except Exception:
+    def close(self):
+        """Close thread-local connection (call at teardown if you want)."""
+        conn = getattr(self._local, "conn", None)
+        if conn is not None:
             try:
-                conn.execute("ROLLBACK;")
-            except Exception:
-                pass
+                conn.close()
+            finally:
+                self._local.conn = None
+
+    @contextmanager
+    def tx(self):
+        """
+        Transaction context:
+          with db.tx() as conn:
+              conn.execute(...)
+        Commits on success, rolls back on error.
+        """
+        conn = self.connect()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
             raise
-        finally:
-            conn.close()
 
-    def one(self, sql: str, params: Iterable[Any] = ()) -> Optional[Dict[str, Any]]:
+    # ---------- convenience helpers ----------
+
+    def execute(self, sql: str, params: tuple = ()):
+        with self.tx() as conn:
+            cur = conn.execute(sql, params)
+            return cur.rowcount
+
+    def executemany(self, sql: str, seq_of_params):
+        with self.tx() as conn:
+            cur = conn.executemany(sql, seq_of_params)
+            return cur.rowcount
+
+    def fetchone(self, sql: str, params: tuple = ()):
         conn = self.connect()
-        try:
-            cur = conn.execute(sql, tuple(params))
-            return cur.fetchone()
-        finally:
-            conn.close()
+        cur = conn.execute(sql, params)
+        return cur.fetchone()
 
-    def all(self, sql: str, params: Iterable[Any] = ()) -> List[Dict[str, Any]]:
+    def fetchall(self, sql: str, params: tuple = ()):
         conn = self.connect()
-        try:
-            cur = conn.execute(sql, tuple(params))
-            return cur.fetchall()
-        finally:
-            conn.close()
+        cur = conn.execute(sql, params)
+        return cur.fetchall()
 
-    def val(self, sql: str, params: Iterable[Any] = ()) -> Any:
-        row = self.one(sql, params)
-        if not row:
-            return None
-        return next(iter(row.values()))
-
-    def exec(self, sql: str, params: Iterable[Any] = ()) -> None:
-        conn = self.connect()
-        try:
-            conn.execute(sql, tuple(params))
-        finally:
-            conn.close()
+    def scalar(self, sql: str, params: tuple = (), default=None):
+        row = self.fetchone(sql, params)
+        if row is None:
+            return default
+        # sqlite3.Row supports indexing by position
+        return row[0]
