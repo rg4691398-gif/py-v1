@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ title or 'Voucher System' }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="{{ url_for('static', filename='assets/app.js') }}"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <div data-sidebar-overlay class="hidden fixed inset-0 z-40 bg-slate-900/50"></div>
+
+  <div class="min-h-screen flex">
+    <aside data-sidebar class="fixed lg:static inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 -translate-x-full lg:translate-x-0 transition-transform">
+      <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div class="font-bold tracking-wide">{{ brand }}</div>
+        <button class="lg:hidden p-2 rounded-xl hover:bg-slate-100" aria-label="Close sidebar" onclick="document.querySelector('[data-sidebar-overlay]').click()">✕</button>
+      </div>
+
+      <div class="p-4">
+        <div class="text-xs text-slate-500">Logged in as</div>
+        <div class="font-semibold">{{ user.username }}</div>
+        <div class="text-xs text-slate-500 mt-0.5">
+          {% if user.role == 'super' %}Super Admin{% else %}Operator{% endif %}
+        </div>
+
+        <nav class="mt-5 space-y-1">
+          {% set link = "flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-100" %}
+          {% set active_cls = "bg-slate-100 font-semibold" %}
+          <a class="{{ link }} {% if active=='dashboard' %}{{ active_cls }}{% endif %}" href="{{ url_for('dashboard') }}">Dashboard</a>
+          <a class="{{ link }} {% if active=='routers' %}{{ active_cls }}{% endif %}" href="{{ url_for('routers') }}">Routers</a>
+          <a class="{{ link }} {% if active=='profiles' %}{{ active_cls }}{% endif %}" href="{{ url_for('profiles') }}">Profiles</a>
+          {% if user.role == 'super' %}<a class="{{ link }} {% if active=='operators' %}{{ active_cls }}{% endif %}" href="{{ url_for('operators') }}">Operators</a>{% endif %}
+          <a class="{{ link }} {% if active=='vouchers' %}{{ active_cls }}{% endif %}" href="{{ url_for('vouchers') }}">Vouchers</a>
+        </nav>
+
+        <div class="mt-6">
+          <a class="inline-flex items-center justify-center w-full h-10 rounded-xl bg-slate-900 text-white hover:bg-slate-800" href="{{ url_for('logout') }}">Logout</a>
+        </div>
+      </div>
+    </aside>
+
+    <main class="flex-1 min-w-0">
+      <div class="sticky top-0 z-30 bg-slate-50/90 backdrop-blur border-b border-slate-200">
+        <div class="px-4 lg:px-6 py-3 flex items-center justify-between">
+          <button data-sidebar-toggle class="lg:hidden p-2 rounded-xl hover:bg-slate-100" aria-label="Toggle sidebar">☰</button>
+          <div class="text-sm text-slate-500">{{ title or '' }}</div>
+          <div></div>
+        </div>
+      </div>
+
+      <div class="px-4 lg:px-6 py-6">
+        {% if flash_ok %}
+          <div class="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900">{{ flash_ok }}</div>
+        {% endif %}
+        {% if flash_err %}
+          <div class="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-900">{{ flash_err }}</div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+</body>
+</html>

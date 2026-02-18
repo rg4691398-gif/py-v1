@@ -1,0 +1,61 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+  <div class="bg-white border border-slate-200 rounded-2xl p-4">
+    <div class="text-sm text-slate-500">Routers</div>
+    <div class="text-3xl font-semibold mt-1">{{ routersCount }}</div>
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-2xl p-4">
+    <div class="text-sm text-slate-500">Unused Vouchers</div>
+    <div class="text-3xl font-semibold mt-1">{{ unusedCount }}</div>
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-2xl p-4">
+    <div class="text-sm text-slate-500">Used Vouchers</div>
+    <div class="text-3xl font-semibold mt-1">{{ usedVouchers }}</div>
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-2xl p-4">
+    <div class="text-sm text-slate-500">Active Sessions</div>
+    <div class="text-3xl font-semibold mt-1">{{ activeSessionsCount }}</div>
+  </div>
+</div>
+
+<div class="mt-6 bg-white border border-slate-200 rounded-2xl overflow-hidden">
+  <div class="p-4 border-b border-slate-200 flex items-center justify-between">
+    <div class="font-semibold">Active Vouchers / Sessions</div>
+    <div class="text-xs text-slate-500">Showing active sessions (up to 200)</div>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50 text-slate-600">
+        <tr>
+          <th class="text-left px-4 py-3">Router</th>
+          <th class="text-left px-4 py-3">MAC</th>
+          <th class="text-left px-4 py-3">Voucher</th>
+          <th class="text-left px-4 py-3">Ends</th>
+          <th class="text-left px-4 py-3">Remaining</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-200">
+        {% for s in recentSessions %}
+        <tr>
+          <td class="px-4 py-3 font-medium">{{ s.router_id }}</td>
+          <td class="px-4 py-3 font-mono text-xs">{{ s.mac }}</td>
+          <td class="px-4 py-3 font-mono">{{ s.voucher }}</td>
+          <td class="px-4 py-3">{{ fmt_time(s.end_at) }}</td>
+          <td class="px-4 py-3">
+            {% set rem = (s.end_at - now_ts) %}
+            {% if rem < 0 %}0s{% else %}{{ rem }}s{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td class="px-4 py-6 text-slate-500" colspan="5">No active sessions</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

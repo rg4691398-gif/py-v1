@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Print · {{ brand }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-white text-slate-900">
+  <div class="p-6">
+    <div class="flex items-center justify-between">
+      <div class="text-2xl font-bold">{{ brand }}</div>
+      <button onclick="window.print()" class="px-4 h-10 rounded-xl border border-slate-200 hover:bg-slate-50">Print</button>
+    </div>
+    <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+      {% for v in vouchers %}
+        <div class="border border-slate-200 rounded-2xl p-3">
+          <div class="text-xs text-slate-500">Voucher</div>
+          <div class="font-mono text-lg font-bold mt-1">{{ v.code }}</div>
+          <div class="text-xs text-slate-500 mt-2">Profile</div>
+          <div class="text-sm font-semibold">{{ v.profile }}</div>
+          <div class="text-xs text-slate-500 mt-2">Duration</div>
+          <div class="text-sm">{{ v.seconds }}s</div>
+          <div class="text-xs text-slate-500 mt-2">Expires</div>
+          <div class="text-sm">{{ fmt_time(v.expires_at) }}</div>
+        </div>
+      {% else %}
+        <div class="text-slate-500">No vouchers to print.</div>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html>

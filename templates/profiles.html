@@ -1,0 +1,88 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="flex items-start justify-between gap-4 flex-wrap">
+  <div>
+    <div class="text-2xl font-semibold">Profiles</div>
+    <div class="text-sm text-slate-500">Only Super Admin can create profiles. Operators generate vouchers using these profiles.</div>
+  </div>
+
+  {% if isSuper %}
+  <form method="post" class="bg-white border border-slate-200 rounded-2xl p-4 w-full md:w-[760px]">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="action" value="create">
+    <div class="font-semibold mb-3">Create Profile</div>
+    {% if err %}<div class="mb-3 text-sm text-rose-700">{{ err }}</div>{% endif %}
+    <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+      <div class="md:col-span-2">
+        <label class="text-xs text-slate-500">Name</label>
+        <input name="name" class="w-full h-10 px-3 rounded-xl border border-slate-200" required>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">Seconds</label>
+        <input name="seconds" type="number" min="1" class="w-full h-10 px-3 rounded-xl border border-slate-200" required>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">Up (MB)</label>
+        <input name="up_mb" type="number" min="0" class="w-full h-10 px-3 rounded-xl border border-slate-200" value="0" required>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">Down (MB)</label>
+        <input name="down_mb" type="number" min="0" class="w-full h-10 px-3 rounded-xl border border-slate-200" value="0" required>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">Expiry days</label>
+        <input name="expiry_days" type="number" min="0" class="w-full h-10 px-3 rounded-xl border border-slate-200" value="7" required>
+      </div>
+      <div class="md:col-span-2">
+        <label class="text-xs text-slate-500">Price</label>
+        <input name="price" type="number" min="0" class="w-full h-10 px-3 rounded-xl border border-slate-200" value="0" required>
+      </div>
+    </div>
+    <button class="mt-4 h-10 px-4 rounded-xl bg-slate-900 text-white hover:bg-slate-800">Create</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="mt-6 bg-white border border-slate-200 rounded-2xl overflow-hidden">
+  <div class="p-4 border-b border-slate-200 font-semibold">Profiles</div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50 text-slate-600">
+        <tr>
+          <th class="text-left px-4 py-3">Name</th>
+          <th class="text-left px-4 py-3">Seconds</th>
+          <th class="text-left px-4 py-3">Up</th>
+          <th class="text-left px-4 py-3">Down</th>
+          <th class="text-left px-4 py-3">Price</th>
+          <th class="text-right px-4 py-3">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-200">
+        {% for p in profiles %}
+        <tr>
+          <td class="px-4 py-3 font-semibold">{{ p.name }}</td>
+          <td class="px-4 py-3">{{ p.seconds }}</td>
+          <td class="px-4 py-3">{{ fmt_bytes(p.up_bytes) }}</td>
+          <td class="px-4 py-3">{{ fmt_bytes(p.down_bytes) }}</td>
+          <td class="px-4 py-3">{{ p.price }}</td>
+          <td class="px-4 py-3 text-right">
+            {% if isSuper %}
+            <form method="post" class="inline">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="name" value="{{ p.name }}">
+              <button class="text-rose-700 hover:underline" onclick="return confirm('Delete profile?')">Delete</button>
+            </form>
+            {% else %}
+              <span class="text-slate-400 text-xs">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td class="px-4 py-6 text-slate-500" colspan="6">No profiles</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="flex items-start justify-between gap-4 flex-wrap">
+  <div>
+    <div class="text-2xl font-semibold">Vouchers</div>
+    <div class="text-sm text-slate-500">Operators can only generate using Super Admin profiles.</div>
+  </div>
+
+  {% if not isSuper %}
+  <form method="post" class="bg-white border border-slate-200 rounded-2xl p-4 w-full md:w-[620px]">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="action" value="generate">
+
+    <div class="font-semibold mb-3">Generate</div>
+    {% if err %}<div class="mb-3 text-sm text-rose-700">{{ err }}</div>{% endif %}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div class="md:col-span-2">
+        <label class="text-xs text-slate-500">Profile</label>
+        <select name="profile" class="w-full h-10 px-3 rounded-xl border border-slate-200" required>
+          <option value="">Select profile</option>
+          {% for p in profiles %}
+            <option value="{{ p.name }}">{{ p.name }} · {{ p.seconds }}s · Up {{ fmt_bytes(p.up_bytes) }} · Down {{ fmt_bytes(p.down_bytes) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="text-xs text-slate-500">Qty</label>
+        <input name="qty" type="number" min="1" max="500" class="w-full h-10 px-3 rounded-xl border border-slate-200" value="10" required>
+      </div>
+      <div class="md:col-span-3">
+        <label class="text-xs text-slate-500">Router scope</label>
+        <select name="router_scope" class="w-full h-10 px-3 rounded-xl border border-slate-200">
+          <option value="*">*</option>
+          {% for r in routers %}
+            <option value="{{ r.router_id }}">{{ r.name }} ({{ r.router_id }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <button class="mt-4 h-10 px-4 rounded-xl bg-slate-900 text-white hover:bg-slate-800">Generate</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="mt-6 flex items-center justify-between flex-wrap gap-3">
+  <form method="get" class="flex items-center gap-2">
+    <select name="status" class="h-10 px-3 rounded-xl border border-slate-200">
+      <option value="" {% if status=='' %}selected{% endif %}>All</option>
+      <option value="unused" {% if status=='unused' %}selected{% endif %}>Unused</option>
+      <option value="used" {% if status=='used' %}selected{% endif %}>Used</option>
+      <option value="revoked" {% if status=='revoked' %}selected{% endif %}>Revoked</option>
+    </select>
+    <input name="q" value="{{ q }}" placeholder="Search code" class="h-10 px-3 rounded-xl border border-slate-200">
+    <button class="h-10 px-4 rounded-xl bg-white border border-slate-200 hover:bg-slate-50">Filter</button>
+  </form>
+
+  <a class="h-10 px-4 inline-flex items-center rounded-xl bg-white border border-slate-200 hover:bg-slate-50" href="{{ url_for('print_page') }}">Print</a>
+</div>
+
+<div class="mt-4 bg-white border border-slate-200 rounded-2xl overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50 text-slate-600">
+        <tr>
+          <th class="text-left px-4 py-3">Code</th>
+          <th class="text-left px-4 py-3">Status</th>
+          <th class="text-left px-4 py-3">Router</th>
+          <th class="text-left px-4 py-3">Profile</th>
+          <th class="text-left px-4 py-3">Duration</th>
+          <th class="text-left px-4 py-3">Expires</th>
+          <th class="text-left px-4 py-3">Used by</th>
+          <th class="text-right px-4 py-3">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-200">
+        {% for v in vouchers %}
+        <tr>
+          <td class="px-4 py-3 font-mono font-semibold">{{ v.code }}</td>
+          <td class="px-4 py-3">
+            <span class="px-2 py-1 rounded-lg text-xs border
+              {% if v.ui_status=='active' %}border-emerald-200 bg-emerald-50 text-emerald-800{% elif v.ui_status=='unused' %}border-slate-200 bg-slate-50 text-slate-700{% elif v.ui_status=='used' %}border-blue-200 bg-blue-50 text-blue-800{% else %}border-rose-200 bg-rose-50 text-rose-800{% endif %}">
+              {{ v.ui_status }}
+            </span>
+          </td>
+          <td class="px-4 py-3 font-mono text-xs">{{ v.router_id }}</td>
+          <td class="px-4 py-3">{{ v.profile }}</td>
+          <td class="px-4 py-3">{{ v.seconds }}s</td>
+          <td class="px-4 py-3">{{ fmt_time(v.expires_at) }}</td>
+          <td class="px-4 py-3 font-mono text-xs">{{ (v.used_by_mac or '-') }}</td>
+          <td class="px-4 py-3 text-right">
+            <form method="post" class="inline">
+              <input type="hidden" name="csrf" value="{{ csrf }}">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="code" value="{{ v.code }}">
+              <button class="text-rose-700 hover:underline" onclick="return confirm('Delete voucher?')">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td class="px-4 py-6 text-slate-500" colspan="8">No vouchers</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

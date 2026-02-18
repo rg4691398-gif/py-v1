@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Login · {{ brand }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <div class="min-h-screen flex items-center justify-center px-4">
+    <form method="post" class="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-6">
+      <div class="text-2xl font-bold">{{ brand }}</div>
+      <div class="text-sm text-slate-500 mt-1">Sign in to continue</div>
+
+      {% if err %}
+        <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-900 text-sm">{{ err }}</div>
+      {% endif %}
+
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+
+      <div class="mt-4">
+        <label class="text-xs text-slate-500">Username</label>
+        <input name="username" class="w-full h-11 px-3 rounded-xl border border-slate-200" autocomplete="username" required>
+      </div>
+
+      <div class="mt-3">
+        <label class="text-xs text-slate-500">Password</label>
+        <input name="password" type="password" class="w-full h-11 px-3 rounded-xl border border-slate-200" autocomplete="current-password" required>
+      </div>
+
+      <button class="mt-5 w-full h-11 rounded-xl bg-slate-900 text-white hover:bg-slate-800">Login</button>
+    </form>
+  </div>
+</body>
+</html>
