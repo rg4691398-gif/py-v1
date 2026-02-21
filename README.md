@@ -1,5 +1,6 @@
 # Flask Voucher System (Render-ready)
-
+Username: admin
+Password: change-me
 ## Local run
 ```bash
 python -m venv .venv
