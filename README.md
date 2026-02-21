@@ -1,6 +1,15 @@
 # Flask Voucher System (Render-ready)
+
+##Build Command
+pip install -r requirements.txt
+
+##Start Command
+bash -c "python migrate.py && gunicorn app:app --bind 0.0.0.0:$PORT"
+
 Username: admin
 Password: change-me
+
+
 ## Local run
 ```bash
 python -m venv .venv
