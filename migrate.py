@@ -1,79 +1,73 @@
 # migrate.py
 import os
 import sqlite3
-import time
 
 
-DB_PATH = os.environ.get("DB_PATH", "vouchers.db")
+def migrate():
+    db_path = os.environ.get("DB_PATH", "vouchers.db").strip()
+    busy_timeout_ms = int(os.environ.get("DB_BUSY_TIMEOUT_MS", "5000"))
 
+    conn = sqlite3.connect(db_path, timeout=busy_timeout_ms / 1000.0)
+    cur = conn.cursor()
 
-def migrate() -> None:
-    # Ensure parent directory exists (if DB_PATH includes folders)
-    db_dir = os.path.dirname(DB_PATH)
-    if db_dir:
-        os.makedirs(db_dir, exist_ok=True)
+    # -----------------------------
+    # USERS
+    # -----------------------------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('super_admin','operator'))
+    );
+    """)
 
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        c = conn.cursor()
+    # -----------------------------
+    # VOUCHERS
+    # -----------------------------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS vouchers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT UNIQUE NOT NULL,
+        duration_minutes INTEGER NOT NULL DEFAULT 60,
+        status TEXT NOT NULL DEFAULT 'unused' CHECK(status IN ('unused','used')),
+        created_by INTEGER,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+        used_at INTEGER,
+        used_by_mac TEXT,
+        FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
+    );
+    """)
 
-        # Core tables
-        c.execute(
-            """
-            CREATE TABLE IF NOT EXISTS routers (
-              router_id TEXT PRIMARY KEY,
-              secret TEXT NOT NULL,
-              created_at INTEGER NOT NULL
-            );
-            """
-        )
+    # -----------------------------
+    # SESSIONS (active time tracking)
+    # -----------------------------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        voucher_id INTEGER NOT NULL,
+        mac TEXT NOT NULL,
+        start_at INTEGER NOT NULL,
+        end_at INTEGER NOT NULL,
+        router_id TEXT,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+        FOREIGN KEY(voucher_id) REFERENCES vouchers(id) ON DELETE CASCADE
+    );
+    """)
 
-        c.execute(
-            """
-            CREATE TABLE IF NOT EXISTS vouchers (
-              code TEXT PRIMARY KEY,
-              duration_seconds INTEGER NOT NULL,
-              used INTEGER NOT NULL DEFAULT 0,
-              used_by_mac TEXT,
-              used_at INTEGER
-            );
-            """
-        )
+    # -----------------------------
+    # NONCES (anti-replay for /api/auth)
+    # -----------------------------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS nonces (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nonce TEXT UNIQUE NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+    );
+    """)
 
-        c.execute(
-            """
-            CREATE TABLE IF NOT EXISTS sessions (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              router_id TEXT NOT NULL,
-              mac TEXT NOT NULL,
-              end_at INTEGER NOT NULL,
-              created_at INTEGER NOT NULL,
-              UNIQUE(router_id, mac)
-            );
-            """
-        )
-
-        # Anti-replay nonces (optional but recommended)
-        c.execute(
-            """
-            CREATE TABLE IF NOT EXISTS nonces (
-              nonce TEXT PRIMARY KEY,
-              created_at INTEGER NOT NULL
-            );
-            """
-        )
-
-        # Helpful indexes
-        c.execute("CREATE INDEX IF NOT EXISTS idx_sessions_router_mac ON sessions(router_id, mac);")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_sessions_end_at ON sessions(end_at);")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_vouchers_used ON vouchers(used);")
-        c.execute("CREATE INDEX IF NOT EXISTS idx_nonces_created_at ON nonces(created_at);")
-
-        conn.commit()
-        print(f"✅ Migration OK: {DB_PATH}")
-
-    finally:
-        conn.close()
+    conn.commit()
+    conn.close()
 
 
 if __name__ == "__main__":
